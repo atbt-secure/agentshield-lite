@@ -9,7 +9,7 @@ import os
 from .config import settings
 from .database import init_db, get_db, AsyncSessionLocal
 from .proxy.interceptor import interceptor, InterceptRequest
-from .api import logs, policies, dashboard, stream, metrics
+from .api import logs, policies, dashboard, stream, metrics, agents
 from .middleware.auth import require_api_key
 from .middleware.rate_limit import proxy_rate_limit, api_rate_limit
 from .seeder import seed_default_policies
@@ -44,6 +44,7 @@ app.add_middleware(
 app.include_router(logs.router, dependencies=[Depends(require_api_key), Depends(api_rate_limit)])
 app.include_router(policies.router, dependencies=[Depends(require_api_key), Depends(api_rate_limit)])
 app.include_router(dashboard.router, dependencies=[Depends(require_api_key), Depends(api_rate_limit)])
+app.include_router(agents.router, dependencies=[Depends(require_api_key), Depends(api_rate_limit)])
 app.include_router(stream.router)   # SSE — no auth (browser EventSource can't set headers)
 app.include_router(metrics.router)  # Prometheus — no auth (scraped internally)
 

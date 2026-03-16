@@ -1,3 +1,4 @@
+import secrets
 from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Text, JSON
 from sqlalchemy.sql import func
 from .database import Base
@@ -51,3 +52,17 @@ class Alert(Base):
     severity = Column(String(20))  # low / medium / high / critical
     acknowledged = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Agent(Base):
+    __tablename__ = "agents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(String(100), unique=True, index=True, nullable=False)
+    name = Column(String(200), nullable=False)
+    description = Column(Text)
+    api_key = Column(String(64), unique=True, index=True)
+    enabled = Column(Boolean, default=True)
+    tags = Column(JSON, default=list)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_seen_at = Column(DateTime(timezone=True))

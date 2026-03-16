@@ -5,22 +5,33 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     volumes:
-      - ./backend:/app
-      - agentshield_data:/app/data
+      - agentshield_data:/data
+    env_file:
+      - .env
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:////app/data/agentshield.db
-      - DEBUG=false
+      - DATABASE_URL=sqlite+aiosqlite:////data/agentshield.db
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
+    depends_on: []
 
-  dashboard:
-    image: nginx:alpine
+  nginx:
+    image: nginx:1.27-alpine
     ports:
-      - "8080:80"
+      - "80:80"
     volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./dashboard:/usr/share/nginx/html:ro
+    depends_on:
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

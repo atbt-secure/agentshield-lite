@@ -491,18 +491,6 @@ function renderAgents(items) {
 
 // ── Auto-refresh ─────────────────────────────────────────────
 
-function startAutoRefresh() {
-  if (refreshTimer) clearInterval(refreshTimer);
-  refreshTimer = setInterval(() => {
-    const indicator = document.getElementById('refresh-indicator');
-    if (indicator) indicator.classList.add('spinning');
-    loadPage(currentPage);
-    setTimeout(() => {
-      if (indicator) indicator.classList.remove('spinning');
-    }, 800);
-  }, REFRESH_INTERVAL_MS);
-}
-
 function manualRefresh() {
   const indicator = document.getElementById('refresh-indicator');
   if (indicator) indicator.classList.add('spinning');
@@ -510,6 +498,103 @@ function manualRefresh() {
   setTimeout(() => {
     if (indicator) indicator.classList.remove('spinning');
   }, 800);
+}
+
+// ── SSE live feed ─────────────────────────────────────────────
+
+let sseConnection = null;
+let liveRowCount = 0;
+const MAX_LIVE_ROWS = 50;
+
+function initSSE() {
+  if (sseConnection) sseConnection.close();
+
+  const indicator = document.getElementById('live-indicator');
+
+  try {
+    sseConnection = new EventSource(`${API_BASE}/api/stream/events`);
+
+    sseConnection.onopen = () => {
+      if (indicator) { indicator.className = 'live-dot live-connected'; indicator.title = 'Live'; }
+    };
+
+    sseConnection.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data);
+        handleLiveEvent(event);
+      } catch {}
+    };
+
+    sseConnection.onerror = () => {
+      if (indicator) { indicator.className = 'live-dot live-disconnected'; indicator.title = 'Disconnected — reconnecting…'; }
+      // Browser auto-reconnects EventSource — just update indicator
+    };
+  } catch (err) {
+    console.warn('SSE not available, using polling', err);
+  }
+}
+
+function handleLiveEvent(event) {
+  // 1. Prepend row to overview timeline (if on overview page)
+  if (currentPage === 'overview') {
+    prependTimelineRow(event);
+  }
+
+  // 2. Flash the live indicator
+  const indicator = document.getElementById('live-indicator');
+  if (indicator) {
+    indicator.classList.add('live-flash');
+    setTimeout(() => indicator.classList.remove('live-flash'), 400);
+  }
+
+  // 3. Refresh stats counter every 5 live events (lightweight)
+  liveRowCount++;
+  if (liveRowCount % 5 === 0) fetchStats();
+}
+
+function prependTimelineRow(l) {
+  const tbody = document.getElementById('timeline-tbody');
+  if (!tbody) return;
+
+  // Remove empty-state row if present
+  const emptyRow = tbody.querySelector('.table-empty');
+  if (emptyRow) emptyRow.closest('tr')?.remove();
+
+  const tr = document.createElement('tr');
+  tr.className = 'live-new-row';
+  tr.innerHTML = `
+    <td class="mono">${l.id}</td>
+    <td style="white-space:nowrap; color:var(--text-muted);">${formatTime(l.created_at)}</td>
+    <td><code style="font-size:12px;">${escHtml(l.agent_id)}</code></td>
+    <td><span class="badge badge-low">${escHtml(l.tool)}</span></td>
+    <td class="mono">${escHtml(l.action)}</td>
+    <td>${riskScoreCell(l.risk_score)}</td>
+    <td>${decisionBadge(l.policy_decision)}</td>
+  `;
+  tbody.insertBefore(tr, tbody.firstChild);
+
+  // Trim to MAX_LIVE_ROWS
+  const rows = tbody.querySelectorAll('tr');
+  if (rows.length > MAX_LIVE_ROWS) {
+    rows[rows.length - 1].remove();
+  }
+
+  // Fade-in animation
+  requestAnimationFrame(() => tr.classList.add('live-row-visible'));
+}
+
+function startAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  // SSE handles real-time overview updates; poll other pages every 30s
+  refreshTimer = setInterval(() => {
+    if (currentPage !== 'overview') {
+      const indicator = document.getElementById('refresh-indicator');
+      if (indicator) indicator.classList.add('spinning');
+      loadPage(currentPage);
+      setTimeout(() => { if (indicator) indicator.classList.remove('spinning'); }, 800);
+    }
+  }, 30000);
+  initSSE();
 }
 
 // ── Toasts ───────────────────────────────────────────────────
