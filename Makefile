@@ -4,7 +4,7 @@
 # ── Development ───────────────────────────────────────────────────────────────
 
 dev:
-	cd backend && uvicorn main:app --reload --port 8000
+	uvicorn backend.main:app --reload --port 8000
 
 install:
 	cd backend && pip install -r requirements.txt
