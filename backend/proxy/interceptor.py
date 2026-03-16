@@ -1,11 +1,13 @@
 import asyncio
 import time
 import logging
+from datetime import datetime, timezone
 from typing import Any, Optional
 from pydantic import BaseModel
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import AgentLog, Alert
+from ..models import Agent, AgentLog, Alert
 from ..policy.engine import policy_engine
 from ..risk.scorer import risk_scorer
 from ..alerts.dispatcher import dispatcher
@@ -88,6 +90,13 @@ class AgentInterceptor:
                 severity=severity,
             )
             db.add(alert)
+
+        # Update last_seen_at for registered agents (best-effort — no error if agent not in registry)
+        await db.execute(
+            update(Agent)
+            .where(Agent.agent_id == req.agent_id)
+            .values(last_seen_at=datetime.now(timezone.utc))
+        )
 
         await db.commit()
 
