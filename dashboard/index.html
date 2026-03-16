@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentShield — AI Agent Security Platform</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡</text></svg>" />
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ==================== Sidebar ==================== -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🛡</div>
+      <span class="logo-text">AgentShield</span>
+      <span class="logo-badge">LITE</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Monitor</span>
+
+      <div class="nav-item active" data-page="overview" onclick="navigate('overview', this)">
+        <span class="nav-icon">📊</span>
+        <span>Overview</span>
+      </div>
+
+      <div class="nav-item" data-page="logs" onclick="navigate('logs', this)">
+        <span class="nav-icon">📋</span>
+        <span>Activity Logs</span>
+      </div>
+
+      <div class="nav-item" data-page="alerts" onclick="navigate('alerts', this)">
+        <span class="nav-icon">🔔</span>
+        <span>Alerts</span>
+        <span id="alerts-badge" class="badge badge-critical" style="display:none; margin-left:auto; padding:1px 6px;"></span>
+      </div>
+
+      <span class="nav-section-label">Security</span>
+
+      <div class="nav-item" data-page="policies" onclick="navigate('policies', this)">
+        <span class="nav-icon">🔒</span>
+        <span>Policies</span>
+      </div>
+
+      <div class="nav-item" data-page="agents" onclick="navigate('agents', this)">
+        <span class="nav-icon">🤖</span>
+        <span>Agents</span>
+      </div>
+
+      <span class="nav-section-label">System</span>
+
+      <div class="nav-item" onclick="window.open('http://localhost:8000/docs', '_blank')">
+        <span class="nav-icon">📖</span>
+        <span>API Docs</span>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="status-dot"></span>Backend connected
+    </div>
+  </aside>
+
+  <!-- ==================== Main ==================== -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <span class="topbar-title" id="page-title">Overview</span>
+      <div class="topbar-actions">
+        <span class="refresh-indicator" id="refresh-indicator">Auto-refresh 10s</span>
+        <button class="btn btn-secondary btn-sm" onclick="manualRefresh()">↻ Refresh</button>
+      </div>
+    </header>
+
+    <!-- Page content -->
+    <main class="page-content">
+
+      <!-- ========== Overview Page ========== -->
+      <div id="page-overview" class="page active">
+
+        <!-- Stats cards -->
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Actions</div>
+            <div class="stat-value text-blue" id="stat-total">—</div>
+            <div class="stat-sub">All time</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Blocked Actions</div>
+            <div class="stat-value text-red" id="stat-blocked">—</div>
+            <div class="stat-sub" id="stat-block-rate">— block rate</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">High Risk</div>
+            <div class="stat-value text-orange" id="stat-high-risk">—</div>
+            <div class="stat-sub">Score &ge; 61</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Unacknowledged Alerts</div>
+            <div class="stat-value text-yellow" id="stat-alerts">—</div>
+            <div class="stat-sub">Needs attention</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Avg Risk Score</div>
+            <div class="stat-value" id="stat-avg-risk">—</div>
+            <div class="stat-sub">0–100 scale</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Unique Agents</div>
+            <div class="stat-value text-blue" id="stat-agents">—</div>
+            <div class="stat-sub">Monitored</div>
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">Recent Activity (last 24h)</span>
+            <button class="btn btn-secondary btn-sm" onclick="navigate('logs', document.querySelector('[data-page=logs]'))">
+              View all →
+            </button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Time</th>
+                  <th>Agent</th>
+                  <th>Tool</th>
+                  <th>Action</th>
+                  <th>Risk Score</th>
+                  <th>Decision</th>
+                </tr>
+              </thead>
+              <tbody id="timeline-tbody">
+                <tr><td colspan="7" class="table-empty">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Top Agents -->
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">Top Agents by Activity</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Agent ID</th>
+                  <th>Actions</th>
+                  <th>Avg Risk</th>
+                </tr>
+              </thead>
+              <tbody id="top-agents-tbody">
+                <tr><td colspan="4" class="table-empty">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== Logs Page ========== -->
+      <div id="page-logs" class="page">
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">Activity Logs</span>
+          </div>
+
+          <!-- Filters -->
+          <div class="filters-bar">
+            <div class="filter-group">
+              <span class="filter-label">Agent:</span>
+              <input type="text" id="filter-agent" placeholder="agent-id" style="width:140px;" oninput="fetchLogs()" />
+            </div>
+            <div class="filter-group">
+              <span class="filter-label">Tool:</span>
+              <input type="text" id="filter-tool" placeholder="database" style="width:120px;" oninput="fetchLogs()" />
+            </div>
+            <div class="filter-group">
+              <span class="filter-label">Min Risk:</span>
+              <input type="number" id="filter-min-risk" placeholder="0" min="0" max="100" style="width:70px;" oninput="fetchLogs()" />
+            </div>
+            <div class="filter-group">
+              <span class="filter-label">Blocked:</span>
+              <select id="filter-blocked" onchange="fetchLogs()" style="width:100px;">
+                <option value="">All</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="clearFilters()">Clear</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Time</th>
+                  <th>Agent</th>
+                  <th>Tool</th>
+                  <th>Action</th>
+                  <th>Risk Score</th>
+                  <th>Decision</th>
+                  <th>Policy</th>
+                  <th>ms</th>
+                </tr>
+              </thead>
+              <tbody id="logs-tbody">
+                <tr><td colspan="9" class="table-empty">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="logs-pagination" style="margin-top:12px; display:flex; gap:10px; align-items:center; font-size:13px; color:var(--text-muted);">
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== Alerts Page ========== -->
+      <div id="page-alerts" class="page">
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">Security Alerts</span>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-secondary btn-sm" id="alerts-filter-btn" onclick="toggleAlertsFilter()">Show Acknowledged</button>
+            </div>
+          </div>
+          <div id="alerts-list">
+            <div class="table-empty">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== Policies Page ========== -->
+      <div id="page-policies" class="page">
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">Security Policies</span>
+            <button class="btn btn-primary btn-sm" onclick="openPolicyModal()">+ Add Policy</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Priority</th>
+                  <th>Name</th>
+                  <th>Tool</th>
+                  <th>Action</th>
+                  <th>Effect</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="policies-tbody">
+                <tr><td colspan="8" class="table-empty">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== Agents Page ========== -->
+      <div id="page-agents" class="page">
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">Agent Activity Summary</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Agent ID</th>
+                  <th>Total Actions</th>
+                  <th>Avg Risk Score</th>
+                  <th>Risk Level</th>
+                </tr>
+              </thead>
+              <tbody id="agents-tbody">
+                <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ==================== Add Policy Modal ==================== -->
+<div class="modal-overlay" id="policy-modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="policy-modal-title">Add Policy</span>
+      <button class="modal-close" onclick="closePolicyModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="policy-edit-id" value="" />
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Name *</label>
+          <input class="form-control" type="text" id="policy-name" placeholder="No DB Deletes" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <input class="form-control" type="number" id="policy-priority" value="100" min="1" />
+          <span class="form-hint">Lower = higher priority</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Tool</label>
+          <input class="form-control" type="text" id="policy-tool" placeholder="* or database" />
+          <span class="form-hint">* matches any tool</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Action</label>
+          <input class="form-control" type="text" id="policy-action" placeholder="* or delete" />
+          <span class="form-hint">* matches any action</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Effect *</label>
+          <select class="form-control" id="policy-effect">
+            <option value="allow">allow</option>
+            <option value="block">block</option>
+            <option value="alert">alert</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Enabled</label>
+          <select class="form-control" id="policy-enabled">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <input class="form-control" type="text" id="policy-description" placeholder="Optional description" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Conditions (JSON)</label>
+        <textarea class="form-control" id="policy-condition" rows="3" placeholder='{"key": "value"}'>{}</textarea>
+        <span class="form-hint">Optional key/value conditions matched against tool_input</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closePolicyModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePolicy()">Save Policy</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== Toast container ==================== -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

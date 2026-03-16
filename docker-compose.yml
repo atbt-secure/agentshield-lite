@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - agentshield_data:/app/data
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:////app/data/agentshield.db
+      - DEBUG=false
+    restart: unless-stopped
+
+  dashboard:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./dashboard:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
+volumes:
+  agentshield_data:
