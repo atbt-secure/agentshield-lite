@@ -967,3 +967,45 @@ td.mono {
 /* ── Live row animation ────────────────────────────────────────── */
 .live-new-row { opacity: 0; transform: translateY(-4px); transition: opacity 0.3s, transform 0.3s; }
 .live-row-visible { opacity: 1; transform: translateY(0); }
+
+/* ── Agent management ─────────────────────────────────────────── */
+.agent-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.agent-tag {
+  display: inline-block;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  border-radius: 10px;
+  background: var(--accent-blue-dim);
+  color: var(--accent-blue-hover);
+  border: 1px solid rgba(79, 142, 247, 0.25);
+}
+
+/* API key display row inside modal */
+.apikey-display-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.apikey-value {
+  flex: 1;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--risk-low);
+  word-break: break-all;
+  letter-spacing: 0.04em;
+}
+
+/* bg-input var fallback */
+:root { --bg-input: #1e2130; }

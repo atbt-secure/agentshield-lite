@@ -462,10 +462,12 @@ async function deletePolicy(policyId, name) {
 
 async function fetchAgents() {
   try {
-    const data = await apiFetch('/api/dashboard/top-agents');
+    const data = await apiFetch('/api/agents');
     renderAgents(data);
   } catch (e) {
     console.error('fetchAgents:', e);
+    const tbody = document.getElementById('agents-tbody');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="table-empty">Error loading agents</td></tr>`;
   }
 }
 
@@ -474,19 +476,156 @@ function renderAgents(items) {
   if (!tbody) return;
 
   if (!items || items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No agents have been recorded yet</td></tr>`;
+    tbody.innerHTML = `
+      <tr><td colspan="8" class="table-empty">
+        No agents registered yet. Click <strong>+ Register Agent</strong> to add one.
+      </td></tr>`;
     return;
   }
 
-  tbody.innerHTML = items.map((a, i) => `
-    <tr>
-      <td class="agent-rank">${i + 1}</td>
-      <td><code style="font-size:12px;">${escHtml(a.agent_id)}</code></td>
-      <td>${a.action_count}</td>
-      <td>${riskScoreCell(a.avg_risk_score)}</td>
-      <td><span class="badge ${riskBadgeClass(a.avg_risk_score)}">${riskLevel(a.avg_risk_score)}</span></td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = items.map(a => {
+    const tagsHtml = (a.tags || []).map(t =>
+      `<span class="agent-tag">${escHtml(t)}</span>`
+    ).join('');
+
+    const lastSeen = a.last_seen_at
+      ? `<span title="${escHtml(a.last_seen_at)}">${formatRelative(a.last_seen_at)}</span>`
+      : `<span style="color:var(--text-muted)">Never</span>`;
+
+    const statusBadge = a.enabled
+      ? `<span class="badge badge-allow">Enabled</span>`
+      : `<span class="badge badge-block">Disabled</span>`;
+
+    return `
+      <tr id="agent-row-${escHtml(a.agent_id)}">
+        <td>
+          <div style="font-weight:600; font-size:13px;">${escHtml(a.name)}</div>
+          <code style="font-size:11px; color:var(--text-muted);">${escHtml(a.agent_id)}</code>
+          ${a.description ? `<div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${escHtml(a.description)}</div>` : ''}
+        </td>
+        <td>${statusBadge}</td>
+        <td><div class="agent-tags">${tagsHtml || '<span style="color:var(--text-muted)">—</span>'}</div></td>
+        <td style="font-variant-numeric:tabular-nums;">${a.action_count}</td>
+        <td style="font-variant-numeric:tabular-nums; color:${a.blocked_count > 0 ? 'var(--risk-high)' : 'inherit'};">${a.blocked_count}</td>
+        <td>${riskScoreCell(a.avg_risk_score)}</td>
+        <td style="font-size:12px; color:var(--text-muted);">${lastSeen}</td>
+        <td>
+          <div style="display:flex; gap:4px; flex-wrap:nowrap;">
+            <button class="btn btn-icon btn-sm" title="${a.enabled ? 'Disable' : 'Enable'} agent"
+              onclick="toggleAgent('${escHtml(a.agent_id)}', ${!a.enabled})">
+              ${a.enabled ? '⏸' : '▶'}
+            </button>
+            <button class="btn btn-icon btn-sm" title="Rotate API key"
+              onclick="rotateAgentKey('${escHtml(a.agent_id)}')">🔄</button>
+            <button class="btn btn-icon btn-sm" title="Delete agent"
+              onclick="deleteAgent('${escHtml(a.agent_id)}', '${escHtml(a.name)}')">🗑️</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function openAgentModal() {
+  document.getElementById('agent-name').value = '';
+  document.getElementById('agent-description').value = '';
+  document.getElementById('agent-tags').value = '';
+  document.getElementById('agent-modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('agent-name').focus(), 60);
+}
+
+function closeAgentModal() {
+  document.getElementById('agent-modal-overlay').classList.remove('open');
+}
+
+async function registerAgent() {
+  const name = document.getElementById('agent-name').value.trim();
+  const description = document.getElementById('agent-description').value.trim();
+  const tagsRaw = document.getElementById('agent-tags').value.trim();
+  const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+  if (!name) { showToast('Name is required', 'warning'); return; }
+
+  try {
+    const agent = await apiFetch('/api/agents', {
+      method: 'POST',
+      body: JSON.stringify({ name, description, tags }),
+    });
+    closeAgentModal();
+    showApiKeyModal(agent.agent_id, agent.api_key, 'Agent Registered — Save Your API Key');
+    fetchAgents();
+  } catch (e) {
+    showToast(`Failed to register agent: ${e.message}`, 'error');
+  }
+}
+
+function showApiKeyModal(agentId, apiKey, title = 'API Key') {
+  document.getElementById('apikey-modal-title').textContent = title;
+  document.getElementById('apikey-agent-id').textContent = agentId;
+  document.getElementById('apikey-display').textContent = apiKey;
+  document.getElementById('copy-key-btn').textContent = 'Copy';
+  document.getElementById('apikey-modal-overlay').classList.add('open');
+}
+
+function closeApiKeyModal() {
+  document.getElementById('apikey-modal-overlay').classList.remove('open');
+}
+
+function copyApiKey() {
+  const key = document.getElementById('apikey-display').textContent;
+  navigator.clipboard.writeText(key).then(() => {
+    const btn = document.getElementById('copy-key-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+    showToast('API key copied to clipboard', 'success');
+  }).catch(() => showToast('Copy failed — select key manually', 'error'));
+}
+
+async function toggleAgent(agentId, enable) {
+  try {
+    await apiFetch(`/api/agents/${agentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled: enable }),
+    });
+    showToast(`Agent ${enable ? 'enabled' : 'disabled'}`, 'success');
+    fetchAgents();
+  } catch (e) {
+    showToast(`Failed: ${e.message}`, 'error');
+  }
+}
+
+async function rotateAgentKey(agentId) {
+  if (!confirm(`Rotate API key for agent "${agentId}"?\n\nThe old key will stop working immediately.`)) return;
+  try {
+    const data = await apiFetch(`/api/agents/${agentId}/rotate-key`, { method: 'POST' });
+    showApiKeyModal(data.agent_id, data.api_key, 'New API Key — Save It Now');
+  } catch (e) {
+    showToast(`Failed to rotate key: ${e.message}`, 'error');
+  }
+}
+
+async function deleteAgent(agentId, name) {
+  if (!confirm(`Delete agent "${name}" (${agentId})?\n\nThis cannot be undone.`)) return;
+  try {
+    await apiFetch(`/api/agents/${agentId}`, { method: 'DELETE' });
+    showToast('Agent deleted', 'success');
+    fetchAgents();
+  } catch (e) {
+    showToast(`Failed to delete: ${e.message}`, 'error');
+  }
+}
+
+function formatRelative(isoStr) {
+  if (!isoStr) return '—';
+  try {
+    const diff = Date.now() - new Date(isoStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  } catch { return isoStr; }
 }
 
 // ── Auto-refresh ─────────────────────────────────────────────
@@ -704,10 +843,18 @@ function severityIcon(severity) {
   return icons[severity] || '⚪';
 }
 
-// ── Close modal on overlay click ──────────────────────────────
+// ── Close modals on overlay click ─────────────────────────────
 
 document.getElementById('policy-modal-overlay').addEventListener('click', function(e) {
   if (e.target === this) closePolicyModal();
+});
+
+document.getElementById('agent-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeAgentModal();
+});
+
+document.getElementById('apikey-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeApiKeyModal();
 });
 
 // ── Init ──────────────────────────────────────────────────────
