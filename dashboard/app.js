@@ -735,6 +735,11 @@ function renderAgentDetail(d) {
   `;
 }
 
+function toggleQuickStart() {
+  const el = document.getElementById('quickstart-content');
+  if (el) el.classList.toggle('quickstart-hidden');
+}
+
 // ── Auto-refresh ─────────────────────────────────────────────
 
 function manualRefresh() {

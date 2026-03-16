@@ -1094,3 +1094,59 @@ td.mono {
   color: var(--text-muted);
   font-size: 11px;
 }
+
+/* ── SDK Quick Start panel ────────────────────────────────────── */
+.quickstart-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+  transition: all 0.3s ease;
+}
+
+.quickstart-hidden { display: none; }
+
+.qs-step {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.qs-step-num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-blue-dim);
+  border: 1px solid var(--accent-blue);
+  color: var(--accent-blue-hover);
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.qs-step-body { flex: 1; min-width: 0; }
+
+.qs-step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.code-block {
+  background: #0d1117;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #a8d8a8;
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 1.6;
+  tab-size: 4;
+}

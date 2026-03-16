@@ -295,6 +295,87 @@
             </table>
           </div>
         </div>
+
+        <!-- Quick Start Integration Guide -->
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">SDK Quick Start</span>
+            <button class="btn btn-secondary btn-sm" onclick="toggleQuickStart()">Toggle</button>
+          </div>
+          <div id="quickstart-content" class="quickstart-panel">
+
+            <div class="qs-step">
+              <div class="qs-step-num">1</div>
+              <div class="qs-step-body">
+                <div class="qs-step-title">Install the SDK</div>
+                <pre class="code-block">pip install agentshield</pre>
+              </div>
+            </div>
+
+            <div class="qs-step">
+              <div class="qs-step-num">2</div>
+              <div class="qs-step-body">
+                <div class="qs-step-title">Register an agent above, then initialize the client</div>
+                <pre class="code-block">from agentshield import AgentShieldClient
+
+shield = AgentShieldClient(
+    base_url="http://localhost:8000",
+    agent_id="&lt;your-agent-id&gt;",
+    api_key="&lt;your-api-key&gt;",
+)</pre>
+              </div>
+            </div>
+
+            <div class="qs-step">
+              <div class="qs-step-num">3</div>
+              <div class="qs-step-body">
+                <div class="qs-step-title">Intercept before each tool call</div>
+                <pre class="code-block">result = await shield.intercept(
+    tool="database",
+    action="query",
+    prompt=user_request,           # optional: full user prompt for PII scanning
+    tool_input={"query": sql},     # optional: structured input for policy matching
+)
+
+# shield raises PermissionError automatically if blocked
+# or check manually:
+if not result.allowed:
+    return f"Blocked: {result.message}"</pre>
+              </div>
+            </div>
+
+            <div class="qs-step">
+              <div class="qs-step-num">4</div>
+              <div class="qs-step-body">
+                <div class="qs-step-title">Use the <code>@shield</code> decorator (optional)</div>
+                <pre class="code-block">from agentshield import shield as shield_decorator
+
+@shield_decorator(tool="filesystem", action="write")
+async def write_file(path: str, content: str):
+    # AgentShield intercepts automatically before this runs
+    with open(path, "w") as f:
+        f.write(content)</pre>
+              </div>
+            </div>
+
+            <div class="qs-step">
+              <div class="qs-step-num">5</div>
+              <div class="qs-step-body">
+                <div class="qs-step-title">Direct HTTP (no SDK required)</div>
+                <pre class="code-block">curl -X POST http://localhost:8000/proxy/intercept \
+  -H "X-API-Key: &lt;your-api-key&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "&lt;your-agent-id&gt;",
+    "tool": "database",
+    "action": "delete",
+    "tool_input": {"table": "users"}
+  }'</pre>
+              </div>
+            </div>
+
+          </div>
+        </div>
       </div>
 
     </main>
