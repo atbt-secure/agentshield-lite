@@ -1,3 +1,4 @@
+import asyncio
 import time
 import logging
 from typing import Any, Optional
@@ -7,7 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models import AgentLog, Alert
 from ..policy.engine import policy_engine
 from ..risk.scorer import risk_scorer
-from ..alerts.slack import slack_alerter
+from ..alerts.dispatcher import dispatcher
+from ..api.metrics import record_intercept
+from ..events import event_bus, LogEvent
 from ..config import settings
 
 logger = logging.getLogger(__name__)
@@ -44,7 +47,7 @@ class AgentInterceptor:
         # 2. Evaluate policy
         decision = await policy_engine.evaluate(db, req.agent_id, req.tool, req.action, req.tool_input)
 
-        # 3. Override to alert if critical risk and no explicit block
+        # 3. Escalate to alert if critical risk and no explicit block
         if risk_result.score >= 81 and decision.effect == "allow":
             decision.effect = "alert"
 
@@ -67,11 +70,16 @@ class AgentInterceptor:
             metadata_=req.metadata or {},
         )
         db.add(log)
-        await db.flush()  # get the ID
+        await db.flush()
 
         # 5. Create alert record if needed
-        if risk_result.score >= settings.risk_alert_threshold or decision.blocked:
-            severity = "critical" if risk_result.score >= 81 else "high" if risk_result.score >= 61 else "medium"
+        should_alert = risk_result.score >= settings.risk_alert_threshold or decision.blocked
+        if should_alert:
+            severity = (
+                "critical" if risk_result.score >= 81
+                else "high" if risk_result.score >= 61
+                else "medium"
+            )
             alert = Alert(
                 log_id=log.id,
                 agent_id=req.agent_id,
@@ -83,10 +91,33 @@ class AgentInterceptor:
 
         await db.commit()
 
-        # 6. Send Slack alert async (fire and forget)
-        if risk_result.score >= settings.risk_alert_threshold or decision.blocked:
-            import asyncio
-            asyncio.create_task(slack_alerter.send_alert(
+        # 6. Publish to SSE bus (non-blocking)
+        event_bus.publish(LogEvent(
+            id=log.id,
+            agent_id=req.agent_id,
+            tool=req.tool,
+            action=req.action,
+            risk_score=risk_result.score,
+            risk_level=risk_result.level,
+            risk_flags=risk_result.flags,
+            policy_decision=decision.effect,
+            blocked=decision.blocked,
+            created_at=log.created_at.isoformat() if log.created_at else "",
+        ))
+
+        # 7. Record Prometheus metrics
+        record_intercept(
+            agent_id=req.agent_id,
+            tool=req.tool,
+            decision=decision.effect,
+            blocked=decision.blocked,
+            risk_score=risk_result.score,
+            duration_ms=duration_ms,
+        )
+
+        # 8. Fire-and-forget multi-channel alerts
+        if should_alert:
+            asyncio.create_task(dispatcher.dispatch(
                 agent_id=req.agent_id,
                 tool=req.tool,
                 action=req.action,
@@ -103,8 +134,9 @@ class AgentInterceptor:
         )
 
         logger.info(
-            f"[{log.id}] {req.agent_id} → {req.tool}.{req.action} "
-            f"score={risk_result.score:.0f} decision={decision.effect}"
+            "[%d] %s → %s.%s score=%.0f decision=%s",
+            log.id, req.agent_id, req.tool, req.action,
+            risk_result.score, decision.effect,
         )
 
         return InterceptResponse(
