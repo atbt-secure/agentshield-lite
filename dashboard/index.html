@@ -533,6 +533,89 @@ async def write_file(path: str, content: str):
 <!-- ==================== Toast container ==================== -->
 <div class="toast-container" id="toast-container"></div>
 
+<!-- ==================== ARIA Bot Widget ==================== -->
+<div class="aria-widget" id="aria-widget">
+
+  <!-- Floating avatar button -->
+  <div class="aria-avatar" id="aria-avatar" onclick="toggleAriaPanel()" title="ARIA — Autonomous Security Agent">
+    <svg class="aria-svg" viewBox="0 0 60 72" xmlns="http://www.w3.org/2000/svg">
+      <!-- Shield body -->
+      <path class="aria-shield-body"
+        d="M30 4 L54 15 L54 40 C54 55 42 66 30 70 C18 66 6 55 6 40 L6 15 Z"/>
+      <!-- Shield inner highlight -->
+      <path class="aria-shield-inner"
+        d="M30 10 L49 19 L49 39 C49 51 39 60 30 64 C21 60 11 51 11 39 L11 19 Z"/>
+      <!-- Left eye -->
+      <circle class="aria-eye aria-eye-l" cx="21" cy="33" r="6"/>
+      <!-- Right eye -->
+      <circle class="aria-eye aria-eye-r" cx="39" cy="33" r="6"/>
+      <!-- Pupils -->
+      <circle class="aria-pupil aria-pupil-l" cx="21" cy="33" r="3"/>
+      <circle class="aria-pupil aria-pupil-r" cx="39" cy="33" r="3"/>
+      <!-- Mouth -->
+      <path class="aria-mouth" d="M22 47 Q30 54 38 47" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    </svg>
+    <!-- Status ring -->
+    <div class="aria-status-ring" id="aria-status-ring"></div>
+    <!-- Notification dot -->
+    <div class="aria-notif" id="aria-notif" style="display:none"></div>
+  </div>
+
+  <!-- Chat panel -->
+  <div class="aria-panel" id="aria-panel">
+    <div class="aria-panel-header">
+      <div class="aria-header-left">
+        <div class="aria-header-avatar">
+          <svg viewBox="0 0 30 36" xmlns="http://www.w3.org/2000/svg" style="width:24px;height:24px;">
+            <path d="M15 2 L27 7.5 L27 20 C27 27.5 21 33 15 35 C9 33 3 27.5 3 20 L3 7.5 Z" fill="#4f8ef7" opacity="0.9"/>
+            <circle cx="10.5" cy="16.5" r="3" fill="white"/>
+            <circle cx="19.5" cy="16.5" r="3" fill="white"/>
+            <circle cx="10.5" cy="16.5" r="1.5" fill="#0f1117"/>
+            <circle cx="19.5" cy="16.5" r="1.5" fill="#0f1117"/>
+            <path d="M11 23.5 Q15 27 19 23.5" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="aria-header-name">ARIA</div>
+          <div class="aria-header-sub" id="aria-header-status">Autonomous Security Agent</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <button class="aria-icon-btn" title="Scan now" onclick="ariaScan()">🔍</button>
+        <button class="aria-icon-btn" title="Close" onclick="toggleAriaPanel()">×</button>
+      </div>
+    </div>
+
+    <div class="aria-messages" id="aria-messages">
+      <!-- Messages injected here -->
+    </div>
+
+    <div class="aria-quick-actions" id="aria-quick-actions">
+      <button onclick="ariaSend('What is the current security status?')">📊 Status</button>
+      <button onclick="ariaSend('Find any policy gaps or uncovered threats')">🔍 Find Gaps</button>
+      <button onclick="ariaSend('Summarize what happened in the last hour')">⏱ Last Hour</button>
+      <button onclick="ariaSend('Are there any alerts I should review?')">🔔 Alerts</button>
+    </div>
+
+    <div class="aria-input-row">
+      <input
+        type="text"
+        id="aria-input"
+        class="aria-input"
+        placeholder="Ask ARIA…"
+        onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); ariaSendInput(); }"
+        autocomplete="off"
+      />
+      <button class="aria-send-btn" onclick="ariaSendInput()" id="aria-send-btn">
+        <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px;">
+          <path d="M3.5 2L18 10 3.5 18V12.5L13 10 3.5 7.5z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
 <script src="app.js"></script>
 </body>
 </html>

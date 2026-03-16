@@ -9,7 +9,8 @@ import os
 from .config import settings
 from .database import init_db, get_db, AsyncSessionLocal
 from .proxy.interceptor import interceptor, InterceptRequest
-from .api import logs, policies, dashboard, stream, metrics, agents
+from .api import logs, policies, dashboard, stream, metrics, agents, bot
+from .agent.security_agent import aria
 from .middleware.auth import require_api_key
 from .middleware.rate_limit import proxy_rate_limit, api_rate_limit
 from .seeder import seed_default_policies
@@ -22,7 +23,9 @@ async def lifespan(app: FastAPI):
     await init_db()
     async with AsyncSessionLocal() as session:
         await seed_default_policies(session)
+    aria.start()
     yield
+    aria.stop()
 
 
 app = FastAPI(
@@ -47,6 +50,7 @@ app.include_router(dashboard.router, dependencies=[Depends(require_api_key), Dep
 app.include_router(agents.router, dependencies=[Depends(require_api_key), Depends(api_rate_limit)])
 app.include_router(stream.router)   # SSE — no auth (browser EventSource can't set headers)
 app.include_router(metrics.router)  # Prometheus — no auth (scraped internally)
+app.include_router(bot.router)      # ARIA bot — no auth (behind dashboard, key optional)
 
 
 @app.post("/proxy/intercept", dependencies=[Depends(require_api_key), Depends(proxy_rate_limit)])

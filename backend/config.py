@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     # Auth
     api_key: Optional[str] = None
 
+    # ARIA autonomous agent (requires Anthropic API key)
+    anthropic_api_key: Optional[str] = None
+
     # Risk
     risk_alert_threshold: int = 70
 

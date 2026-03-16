@@ -973,7 +973,228 @@ document.getElementById('agent-detail-overlay').addEventListener('click', functi
   if (e.target === this) closeAgentDetail();
 });
 
+// ── ARIA Bot ──────────────────────────────────────────────────
+
+let ariaOpen = false;
+let ariaHistory = [];          // serialized conversation history (stateless backend)
+let ariaTyping = false;
+let ariaAvailable = null;      // null = not yet checked, true/false = API key present/absent
+
+async function checkAriaStatus() {
+  try {
+    const status = await apiFetch('/api/bot/status');
+    ariaAvailable = status.available;
+    setAriaState(ariaAvailable ? 'idle' : 'offline');
+    if (status.recent_actions && status.recent_actions.length > 0 && !ariaOpen) {
+      document.getElementById('aria-notif').style.display = 'flex';
+    }
+  } catch (e) {
+    ariaAvailable = false;
+    setAriaState('offline');
+  }
+}
+
+function setAriaState(state) {
+  const ring = document.getElementById('aria-status-ring');
+  const sub = document.getElementById('aria-header-status');
+  const svg = document.querySelector('.aria-svg');
+
+  // Remove all state classes
+  ring?.classList.remove('aria-ring-idle', 'aria-ring-scanning', 'aria-ring-alert', 'aria-ring-offline');
+  svg?.classList.remove('aria-scanning', 'aria-alert-mode');
+
+  if (state === 'idle') {
+    ring?.classList.add('aria-ring-idle');
+    if (sub) sub.textContent = 'Monitoring · All systems normal';
+  } else if (state === 'scanning') {
+    ring?.classList.add('aria-ring-scanning');
+    svg?.classList.add('aria-scanning');
+    if (sub) sub.textContent = 'Scanning security data…';
+  } else if (state === 'alert') {
+    ring?.classList.add('aria-ring-alert');
+    svg?.classList.add('aria-alert-mode');
+    if (sub) sub.textContent = 'Issues detected — review needed';
+  } else if (state === 'offline') {
+    ring?.classList.add('aria-ring-offline');
+    if (sub) sub.textContent = 'Offline — set ANTHROPIC_API_KEY';
+  }
+}
+
+function toggleAriaPanel() {
+  ariaOpen = !ariaOpen;
+  const panel = document.getElementById('aria-panel');
+  const widget = document.getElementById('aria-widget');
+  if (ariaOpen) {
+    panel.classList.add('aria-panel-open');
+    widget.classList.add('aria-widget-open');
+    document.getElementById('aria-notif').style.display = 'none';
+    if (ariaHistory.length === 0) {
+      ariaGreet();
+    }
+    setTimeout(() => document.getElementById('aria-input')?.focus(), 200);
+  } else {
+    panel.classList.remove('aria-panel-open');
+    widget.classList.remove('aria-widget-open');
+  }
+}
+
+async function ariaGreet() {
+  if (ariaAvailable === false) {
+    ariaAddMessage(
+      'bot',
+      '⚠️ I\'m ARIA, your autonomous security analyst. To activate me, add your `ANTHROPIC_API_KEY` to the `.env` file and restart the server.\n\nOnce enabled, I\'ll monitor your agents around the clock, find policy gaps, and fix issues automatically.',
+    );
+    return;
+  }
+  ariaAddMessage('bot', '👋 Hi, I\'m **ARIA** — your autonomous security analyst. I\'m monitoring your agents 24/7.\n\nWhat can I help you with? Use the quick actions below or ask me anything.');
+}
+
+function ariaAddMessage(role, text, isTyping = false) {
+  const container = document.getElementById('aria-messages');
+  if (!container) return;
+
+  const div = document.createElement('div');
+  div.className = `aria-msg aria-msg-${role}`;
+  if (isTyping) div.id = 'aria-typing-indicator';
+
+  if (role === 'bot') {
+    div.innerHTML = `
+      <div class="aria-msg-avatar">
+        <svg viewBox="0 0 30 36" xmlns="http://www.w3.org/2000/svg" style="width:18px;height:18px;">
+          <path d="M15 2 L27 7.5 L27 20 C27 27.5 21 33 15 35 C9 33 3 27.5 3 20 L3 7.5 Z" fill="#4f8ef7"/>
+          <circle cx="10.5" cy="16.5" r="2.5" fill="white"/><circle cx="19.5" cy="16.5" r="2.5" fill="white"/>
+          <circle cx="10.5" cy="16.5" r="1.2" fill="#0f1117"/><circle cx="19.5" cy="16.5" r="1.2" fill="#0f1117"/>
+        </svg>
+      </div>
+      <div class="aria-msg-bubble">${isTyping ? '<span class="aria-typing-dots"><span></span><span></span><span></span></span>' : renderAriaText(text)}</div>`;
+  } else {
+    div.innerHTML = `<div class="aria-msg-bubble">${escHtml(text)}</div>`;
+  }
+
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+function renderAriaText(text) {
+  // Minimal markdown: **bold**, `code`, newlines
+  return escHtml(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\n/g, '<br>');
+}
+
+function ariaShowTyping() {
+  return ariaAddMessage('bot', '', true);
+}
+
+function ariaRemoveTyping() {
+  document.getElementById('aria-typing-indicator')?.remove();
+}
+
+async function ariaSend(message) {
+  if (ariaTyping) return;
+  if (!message.trim()) return;
+
+  ariaAddMessage('user', message);
+  ariaTyping = true;
+  setAriaState('scanning');
+  const sendBtn = document.getElementById('aria-send-btn');
+  if (sendBtn) sendBtn.disabled = true;
+
+  // Hide quick actions after first message
+  const qa = document.getElementById('aria-quick-actions');
+  if (qa) qa.style.display = 'none';
+
+  ariaShowTyping();
+
+  try {
+    const result = await apiFetch('/api/bot/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, history: ariaHistory }),
+    });
+
+    ariaRemoveTyping();
+    ariaHistory = result.updated_history || ariaHistory;
+    ariaAvailable = result.available !== false;
+
+    ariaAddMessage('bot', result.reply);
+
+    // Show actions taken
+    if (result.actions_taken && result.actions_taken.length > 0) {
+      const actionSummary = result.actions_taken.map(a => {
+        if (a.tool === 'create_policy') return `🔧 Created policy: **${a.input.name}**`;
+        if (a.tool === 'acknowledge_alerts') return `✅ Acknowledged **${a.input.severity || 'low'}** alerts`;
+        return `🔧 ${a.tool}`;
+      }).join('\n');
+      ariaAddMessage('bot', `**Actions taken:**\n${actionSummary}`);
+      fetchStats(); // refresh dashboard counters
+      if (currentPage === 'policies') fetchPolicies();
+      if (currentPage === 'alerts') fetchAlerts();
+    }
+
+    setAriaState(ariaAvailable ? 'idle' : 'offline');
+  } catch (e) {
+    ariaRemoveTyping();
+    ariaAddMessage('bot', `❌ Error: ${e.message}. Please try again.`);
+    setAriaState(ariaAvailable ? 'idle' : 'offline');
+  }
+
+  ariaTyping = false;
+  if (sendBtn) sendBtn.disabled = false;
+}
+
+function ariaSendInput() {
+  const input = document.getElementById('aria-input');
+  const msg = input?.value?.trim();
+  if (!msg) return;
+  input.value = '';
+  ariaSend(msg);
+}
+
+async function ariaScan() {
+  if (ariaTyping) return;
+  if (!ariaOpen) toggleAriaPanel();
+
+  ariaTyping = true;
+  setAriaState('scanning');
+  const sendBtn = document.getElementById('aria-send-btn');
+  if (sendBtn) sendBtn.disabled = true;
+
+  const qa = document.getElementById('aria-quick-actions');
+  if (qa) qa.style.display = 'none';
+
+  ariaAddMessage('user', '🔍 Run a full security scan');
+  ariaShowTyping();
+
+  try {
+    const result = await apiFetch('/api/bot/scan', { method: 'POST' });
+    ariaRemoveTyping();
+    ariaHistory = result.updated_history || [];
+    ariaAddMessage('bot', result.reply);
+
+    if (result.actions_taken && result.actions_taken.length > 0) {
+      const summary = result.actions_taken.map(a => {
+        if (a.tool === 'create_policy') return `🔧 Policy created: **${a.input.name}**`;
+        if (a.tool === 'acknowledge_alerts') return `✅ Auto-acknowledged old **${a.input.severity}** alerts`;
+        return `🔧 ${a.tool}`;
+      }).join('\n');
+      ariaAddMessage('bot', `**Autonomous actions:**\n${summary}`);
+      fetchStats();
+    }
+    setAriaState('idle');
+  } catch (e) {
+    ariaRemoveTyping();
+    ariaAddMessage('bot', `❌ Scan failed: ${e.message}`);
+    setAriaState('idle');
+  }
+
+  ariaTyping = false;
+  if (sendBtn) sendBtn.disabled = false;
+}
+
 // ── Init ──────────────────────────────────────────────────────
 
 loadOverview();
 startAutoRefresh();
+checkAriaStatus();

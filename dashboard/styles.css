@@ -1150,3 +1150,390 @@ td.mono {
   line-height: 1.6;
   tab-size: 4;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   ARIA Bot Widget
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Widget container ────────────────────────────────────────── */
+.aria-widget {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+/* ── Floating avatar ─────────────────────────────────────────── */
+.aria-avatar {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  cursor: pointer;
+  filter: drop-shadow(0 4px 16px rgba(79, 142, 247, 0.45));
+  transition: transform 0.2s ease, filter 0.2s ease;
+  flex-shrink: 0;
+}
+
+.aria-avatar:hover {
+  transform: scale(1.1);
+  filter: drop-shadow(0 6px 24px rgba(79, 142, 247, 0.7));
+}
+
+.aria-svg {
+  width: 60px;
+  height: 60px;
+  transition: all 0.3s ease;
+}
+
+/* Shield body */
+.aria-shield-body {
+  fill: #1e2a4a;
+  stroke: #4f8ef7;
+  stroke-width: 2;
+}
+
+.aria-shield-inner {
+  fill: none;
+  stroke: rgba(79, 142, 247, 0.25);
+  stroke-width: 1;
+}
+
+/* Eyes */
+.aria-eye {
+  fill: white;
+  transition: all 0.15s ease;
+}
+
+.aria-pupil {
+  fill: #0f1117;
+  transition: all 0.15s ease;
+}
+
+/* Mouth */
+.aria-mouth {
+  stroke: white;
+  opacity: 0.9;
+}
+
+/* Idle: subtle eye glow */
+.aria-svg .aria-eye {
+  filter: drop-shadow(0 0 3px rgba(79, 142, 247, 0.6));
+}
+
+/* Scanning: eyes turn cyan, shield pulses */
+.aria-scanning .aria-eye { fill: #22d3ee; }
+.aria-scanning .aria-shield-body { animation: aria-shield-pulse 1.2s ease-in-out infinite; }
+
+/* Alert mode: eyes turn red */
+.aria-alert-mode .aria-eye { fill: #ef4444; }
+.aria-alert-mode .aria-shield-body { stroke: #ef4444; animation: aria-shield-pulse-red 0.8s ease-in-out infinite; }
+
+@keyframes aria-shield-pulse {
+  0%, 100% { stroke: #4f8ef7; fill: #1e2a4a; }
+  50%       { stroke: #22d3ee; fill: #1a2e40; }
+}
+
+@keyframes aria-shield-pulse-red {
+  0%, 100% { stroke: #ef4444; fill: #2a1a1a; }
+  50%       { stroke: #ff6b6b; fill: #2e1010; }
+}
+
+/* Blink animation */
+@keyframes aria-blink {
+  0%, 90%, 100% { ry: 6; }
+  95%            { ry: 0.5; }
+}
+
+.aria-eye-l { animation: aria-blink 4s infinite; }
+.aria-eye-r { animation: aria-blink 4s 0.15s infinite; }
+
+/* Status ring */
+.aria-status-ring {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-primary);
+  transition: background 0.3s ease;
+}
+
+.aria-ring-idle     { background: #22c55e; }
+.aria-ring-scanning { background: #22d3ee; animation: aria-ring-spin 1s linear infinite; }
+.aria-ring-alert    { background: #ef4444; animation: aria-ring-blink 0.8s ease-in-out infinite; }
+.aria-ring-offline  { background: #6b7280; }
+
+@keyframes aria-ring-spin {
+  0%   { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.5); }
+  50%  { box-shadow: 0 0 0 5px rgba(34, 211, 238, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+}
+
+@keyframes aria-ring-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* Notification dot */
+.aria-notif {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  background: #ef4444;
+  border-radius: 50%;
+  border: 2px solid var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  color: white;
+  animation: aria-ring-blink 2s infinite;
+}
+
+/* ── Chat panel ──────────────────────────────────────────────── */
+.aria-panel {
+  width: 360px;
+  max-height: 0;
+  overflow: hidden;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+  opacity: 0;
+}
+
+.aria-panel-open {
+  max-height: 520px;
+  opacity: 1;
+}
+
+/* Panel header */
+.aria-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.aria-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.aria-header-avatar {
+  width: 34px;
+  height: 34px;
+  background: var(--accent-blue-dim);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(79, 142, 247, 0.3);
+}
+
+.aria-header-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-primary);
+  letter-spacing: 0.03em;
+}
+
+.aria-header-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.aria-icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.aria-icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+/* Messages area */
+.aria-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+/* Message bubbles */
+.aria-msg {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  animation: aria-msg-in 0.2s ease;
+}
+
+@keyframes aria-msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.aria-msg-bot  { align-self: flex-start; }
+.aria-msg-user { align-self: flex-end; flex-direction: row-reverse; }
+
+.aria-msg-avatar {
+  width: 26px;
+  height: 26px;
+  background: var(--accent-blue-dim);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.aria-msg-bubble {
+  max-width: 260px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.aria-msg-bot .aria-msg-bubble {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-bottom-left-radius: 4px;
+  color: var(--text-primary);
+}
+
+.aria-msg-user .aria-msg-bubble {
+  background: var(--accent-blue-dim);
+  border: 1px solid rgba(79, 142, 247, 0.3);
+  border-bottom-right-radius: 4px;
+  color: var(--text-primary);
+}
+
+/* Typing dots */
+.aria-typing-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.aria-typing-dots span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: aria-dot-bounce 1.2s infinite;
+}
+
+.aria-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.aria-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes aria-dot-bounce {
+  0%, 100% { transform: translateY(0);    opacity: 0.4; }
+  50%       { transform: translateY(-5px); opacity: 1; }
+}
+
+/* Quick actions */
+.aria-quick-actions {
+  padding: 6px 10px 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.aria-quick-actions button {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.aria-quick-actions button:hover {
+  background: var(--accent-blue-dim);
+  color: var(--accent-blue-hover);
+  border-color: rgba(79, 142, 247, 0.3);
+}
+
+/* Input row */
+.aria-input-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 10px 10px;
+  flex-shrink: 0;
+}
+
+.aria-input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  color: var(--text-primary);
+  font-size: 13px;
+  padding: 7px 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.aria-input:focus { border-color: var(--accent-blue); }
+.aria-input::placeholder { color: var(--text-muted); }
+
+.aria-send-btn {
+  width: 34px;
+  height: 34px;
+  background: var(--accent-blue);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+
+.aria-send-btn:hover { background: var(--accent-blue-hover); transform: scale(1.05); }
+.aria-send-btn:disabled { background: var(--bg-hover); cursor: not-allowed; transform: none; }
+
+/* Inline code in messages */
+.aria-msg-bubble code {
+  background: rgba(79, 142, 247, 0.15);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+}
