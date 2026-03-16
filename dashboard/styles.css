@@ -1009,3 +1009,88 @@ td.mono {
 
 /* bg-input var fallback */
 :root { --bg-input: #1e2130; }
+
+/* ── Agent detail panel ───────────────────────────────────────── */
+.modal-wide { max-width: 720px; width: 100%; }
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .detail-grid { grid-template-columns: 1fr; }
+}
+
+.detail-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.detail-card-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.detail-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+}
+
+.detail-stat-row:last-child { border-bottom: none; }
+.detail-stat-row > span { color: var(--text-muted); }
+
+/* Tool usage bar chart */
+.detail-tools-chart { display: flex; flex-direction: column; gap: 8px; }
+
+.detail-tool-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.detail-tool-name {
+  width: 120px;
+  flex-shrink: 0;
+  color: var(--text-primary);
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-tool-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-hover);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.detail-tool-bar {
+  height: 100%;
+  background: var(--accent-blue);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.detail-tool-count {
+  width: 32px;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 11px;
+}

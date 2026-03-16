@@ -498,8 +498,8 @@ function renderAgents(items) {
 
     return `
       <tr id="agent-row-${escHtml(a.agent_id)}">
-        <td>
-          <div style="font-weight:600; font-size:13px;">${escHtml(a.name)}</div>
+        <td style="cursor:pointer;" onclick="openAgentDetail('${escHtml(a.agent_id)}', '${escHtml(a.name)}')" title="View details">
+          <div style="font-weight:600; font-size:13px; color:var(--accent-blue-hover);">${escHtml(a.name)}</div>
           <code style="font-size:11px; color:var(--text-muted);">${escHtml(a.agent_id)}</code>
           ${a.description ? `<div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${escHtml(a.description)}</div>` : ''}
         </td>
@@ -626,6 +626,113 @@ function formatRelative(isoStr) {
     const days = Math.floor(hrs / 24);
     return `${days}d ago`;
   } catch { return isoStr; }
+}
+
+// ── Agent Detail panel ────────────────────────────────────────
+
+async function openAgentDetail(agentId, agentName) {
+  document.getElementById('detail-agent-name').textContent = agentName;
+  document.getElementById('detail-agent-id').textContent = agentId;
+  document.getElementById('agent-detail-body').innerHTML = '<div class="table-empty">Loading…</div>';
+  document.getElementById('agent-detail-overlay').classList.add('open');
+
+  try {
+    const data = await apiFetch(`/api/agents/${encodeURIComponent(agentId)}`);
+    renderAgentDetail(data);
+  } catch (e) {
+    document.getElementById('agent-detail-body').innerHTML =
+      `<div class="table-empty">Error loading agent details: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function closeAgentDetail() {
+  document.getElementById('agent-detail-overlay').classList.remove('open');
+}
+
+function renderAgentDetail(d) {
+  const s = d.stats || {};
+  const w = d.last_7_days || {};
+  const tools = d.top_tools || [];
+
+  const blockRate = s.action_count > 0
+    ? ((s.blocked_count / s.action_count) * 100).toFixed(1)
+    : '0.0';
+
+  const tagsHtml = (d.tags || []).map(t =>
+    `<span class="agent-tag">${escHtml(t)}</span>`
+  ).join('') || '<span style="color:var(--text-muted)">No tags</span>';
+
+  const toolRows = tools.length
+    ? tools.map(t => `
+        <div class="detail-tool-row">
+          <span class="detail-tool-name">${escHtml(t.tool)}</span>
+          <div class="detail-tool-bar-wrap">
+            <div class="detail-tool-bar" style="width:${Math.round((t.count / (tools[0].count || 1)) * 100)}%;"></div>
+          </div>
+          <span class="detail-tool-count">${t.count}</span>
+        </div>`).join('')
+    : '<div style="color:var(--text-muted); font-size:13px;">No tool usage recorded yet</div>';
+
+  document.getElementById('agent-detail-body').innerHTML = `
+    <div class="detail-grid">
+
+      <!-- All-time stats -->
+      <div class="detail-card">
+        <div class="detail-card-title">All-Time Stats</div>
+        <div class="detail-stat-row"><span>Total Actions</span><strong>${s.action_count ?? 0}</strong></div>
+        <div class="detail-stat-row"><span>Blocked</span>
+          <strong style="color:${(s.blocked_count ?? 0) > 0 ? 'var(--risk-high)' : 'inherit'};">
+            ${s.blocked_count ?? 0} (${blockRate}%)
+          </strong>
+        </div>
+        <div class="detail-stat-row"><span>Avg Risk Score</span>
+          <strong class="${riskColorClass(s.avg_risk_score ?? 0)}">${(s.avg_risk_score ?? 0).toFixed(1)}</strong>
+        </div>
+      </div>
+
+      <!-- Last 7 days -->
+      <div class="detail-card">
+        <div class="detail-card-title">Last 7 Days</div>
+        <div class="detail-stat-row"><span>Actions</span><strong>${w.action_count ?? 0}</strong></div>
+        <div class="detail-stat-row"><span>Blocked</span>
+          <strong style="color:${(w.blocked_count ?? 0) > 0 ? 'var(--risk-high)' : 'inherit'};">
+            ${w.blocked_count ?? 0}
+          </strong>
+        </div>
+        <div class="detail-stat-row"><span>Status</span>
+          <strong>${d.enabled
+            ? '<span class="badge badge-allow">Enabled</span>'
+            : '<span class="badge badge-block">Disabled</span>'}</strong>
+        </div>
+        <div class="detail-stat-row"><span>Last Seen</span>
+          <strong>${formatRelative(d.last_seen_at)}</strong>
+        </div>
+      </div>
+
+      <!-- Tags & meta -->
+      <div class="detail-card">
+        <div class="detail-card-title">Metadata</div>
+        <div class="detail-stat-row"><span>Created</span>
+          <strong>${formatDate(d.created_at)}</strong>
+        </div>
+        <div class="detail-stat-row" style="align-items:flex-start;">
+          <span>Tags</span>
+          <div class="agent-tags" style="justify-content:flex-end;">${tagsHtml}</div>
+        </div>
+        ${d.description ? `
+        <div class="detail-stat-row" style="align-items:flex-start;">
+          <span>Description</span>
+          <span style="color:var(--text-muted); font-size:12px; text-align:right;">${escHtml(d.description)}</span>
+        </div>` : ''}
+      </div>
+    </div>
+
+    <!-- Top tools chart -->
+    <div style="margin-top:20px;">
+      <div class="detail-card-title" style="margin-bottom:12px;">Top Tools Used</div>
+      <div class="detail-tools-chart">${toolRows}</div>
+    </div>
+  `;
 }
 
 // ── Auto-refresh ─────────────────────────────────────────────
@@ -855,6 +962,10 @@ document.getElementById('agent-modal-overlay').addEventListener('click', functio
 
 document.getElementById('apikey-modal-overlay').addEventListener('click', function(e) {
   if (e.target === this) closeApiKeyModal();
+});
+
+document.getElementById('agent-detail-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeAgentDetail();
 });
 
 // ── Init ──────────────────────────────────────────────────────
